@@ -5,6 +5,8 @@ const User = require('../models/user')
 const { uploadReceipt } = require('../utils/cloudinary')
 const { orderReceivedEmail, orderConfirmedEmail, orderRejectedEmail } = require('../utils/email')
 
+const REQUIRED_SHIPPING = ['fullName', 'email', 'phone', 'area', 'house', 'block', 'road']
+
 // customer: place an order with a receipt
 const create = async (req, res) => {
     try {
@@ -18,8 +20,8 @@ const create = async (req, res) => {
         if (!items.length) {
             return res.status(400).json({ err: 'Your cart is empty.' })
         }
-        if (!shipping.fullName || !shipping.phone || !shipping.address) {
-            return res.status(400).json({ err: 'Name, phone and address are required.' })
+        if (REQUIRED_SHIPPING.some((field) => !shipping[field] || !String(shipping[field]).trim())) {
+            return res.status(400).json({ err: 'Please fill in all delivery details.' })
         }
 
         // prices always come from the database, never from the client
@@ -65,13 +67,22 @@ const create = async (req, res) => {
             reference,
             items: orderItems,
             total,
-            shipping,
+            shipping: {
+                fullName: shipping.fullName,
+                email: shipping.email,
+                phone: shipping.phone,
+                area: shipping.area,
+                house: shipping.house,
+                block: shipping.block,
+                road: shipping.road,
+            },
             receiptUrl,
         })
 
         const customer = await User.findById(req.user._id)
-        if (customer) {
-            orderReceivedEmail(customer.email, order)
+        const emailTo = order.shipping.email || (customer && customer.email)
+        if (emailTo) {
+            orderReceivedEmail(emailTo, order)
         }
 
         res.status(201).json(order)
@@ -139,7 +150,7 @@ const confirm = async (req, res) => {
         order.status = 'paid'
         await order.save()
 
-        orderConfirmedEmail(order.user.email, order)
+        orderConfirmedEmail(order.shipping.email || order.user.email, order)
         res.status(200).json(order)
     } catch (err) {
         res.status(500).json({ err: err.message })
@@ -161,7 +172,7 @@ const reject = async (req, res) => {
         order.rejectionReason = req.body.reason || ''
         await order.save()
 
-        orderRejectedEmail(order.user.email, order)
+        orderRejectedEmail(order.shipping.email || order.user.email, order)
         res.status(200).json(order)
     } catch (err) {
         res.status(500).json({ err: err.message })
