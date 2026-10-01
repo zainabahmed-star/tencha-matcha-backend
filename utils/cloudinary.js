@@ -6,10 +6,10 @@ cloudinary.config({
     api_secret: process.env.CLOUDINARY_API_SECRET,
 })
 
-const uploadReceipt = (buffer) => {
+const uploadBuffer = (buffer, folder, resourceType) => {
     return new Promise((resolve, reject) => {
         const stream = cloudinary.uploader.upload_stream(
-            { folder: 'tencha-matcha/receipts', resource_type: 'auto' },
+            { folder, resource_type: resourceType },
             (error, result) => {
                 if (error) return reject(error)
                 resolve(result.secure_url)
@@ -19,4 +19,10 @@ const uploadReceipt = (buffer) => {
     })
 }
 
-module.exports = { uploadReceipt }
+const uploadReceipt = (buffer) =>
+    uploadBuffer(buffer, 'tencha-matcha/receipts', 'auto')
+
+const uploadProductImage = (buffer) =>
+    uploadBuffer(buffer, 'tencha-matcha/products', 'image')
+
+module.exports = { uploadReceipt, uploadProductImage }
